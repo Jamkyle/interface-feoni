@@ -46,7 +46,7 @@ class App extends Component {
   render() {
     const {go, firebase, id, categories, tradData, cantiqueData} = this.props
     let num = id.includes(categories) ? id : categories+id
-    console.log(num);
+    // console.log(num);
     return (
       <div className="App">
       <h1>Interface Gestion <br /> Feoni </h1>

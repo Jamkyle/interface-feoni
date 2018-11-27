@@ -8,7 +8,7 @@ const middlewares = store => next => action => {
     next(action)
 
   if(action.type === 'GET_CANTIQUE_TRADUCTION'){
-    console.log(action.id);
+    // console.log(action.id);
     let num
       num = action.id.toString()
       let database = action.firebase.database()

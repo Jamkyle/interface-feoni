@@ -6,7 +6,7 @@ class TextInput extends Component{
   componentWillUpdate(nextProps, nextState){
     if(nextProps.trad.titre !== this.props.trad.titre)
       {
-        console.log(nextProps.trad.titre);
+        // console.log(nextProps.trad.titre);
           this.props.name === 'title' && this.setState({value : nextProps.trad.titre || ''})
       }
   }

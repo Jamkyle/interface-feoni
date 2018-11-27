@@ -32,7 +32,7 @@ class TextAera extends Component{
     this.setState({value : e.target.value})
     name === 'francais' && setData({type:'SET_DATA_TRAD', data : e.target.value})
     name === 'malgache' && setData({type:'SET_DATA_CANTIQUE', data : e.target.value})
-    console.log(e.target.value);
+    // console.log(e.target.value);
   }
 
   render(){

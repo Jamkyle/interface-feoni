@@ -11,12 +11,15 @@ import * as serviceWorker from './serviceWorker';
 
 import { reactReduxFirebase } from 'react-redux-firebase'
 import firebase from 'firebase'
+import firebaseJson from './config.json'
 
-const firebaseConfig = {
-  apiKey: "AIzaSyD5VsOspNrkr7konEZwV6XYVWBRNhFWWBs",
-  authDomain: "hiraapp-e0dac.firebaseapp.com",
-  databaseURL: "https://hiraapp-e0dac.firebaseio.com"
-}
+const firebaseConfig = firebaseJson
+
+// const firebaseConfig = {
+//   apiKey: "AIzaSyD5VsOspNrkr7konEZwV6XYVWBRNhFWWBs",
+//   authDomain: "hiraapp-e0dac.firebaseapp.com",
+//   databaseURL: "https://hiraapp-e0dac.firebaseio.com"
+// }
 
 firebase.initializeApp(firebaseConfig)
 

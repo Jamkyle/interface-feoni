@@ -22,6 +22,20 @@ const middlewares = store => next => action => {
         next({ type: 'GET_TRAD_FAIL'})
       })
   }
+
+if(action.type === 'GET_LIST_CANTIQUE'){
+    // console.log(action.id);
+  let database = action.firebase.database()
+  database.ref('/Traduction').orderByChild('id').on('value', trad => {
+     let obj = []
+     trad.forEach( e => {
+       obj.push(e.val())
+     })
+     next({ type: 'DO_LIST_CANTIQUES', list : obj })
+   })
+ }
+
+
   if(action.type === 'SET_KEY' || action.type === 'SET_CAT'){
     next(action)
   }

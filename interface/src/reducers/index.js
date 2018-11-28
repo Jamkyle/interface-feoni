@@ -32,9 +32,15 @@ const trad = (state = {}, action) => {
       return state
   }
 }
+
 const key = (state ='', action)=> {
   return action.type === 'SET_KEY' ? action.key : state
 }
+
+const listCantiques = (state=[], action) => {
+  return action.type === 'DO_LIST_CANTIQUES' ? action.list : state
+}
+
 const categories = (state ='', action)=> {
   let cat = state
   switch (action.cat) {
@@ -80,6 +86,7 @@ const reducers = {
   trad,
   keyData: key,
   id : setId,
+  listCantiques,
   firebase: firebaseReducer
 }
 

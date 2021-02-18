@@ -1,0 +1,85 @@
+.App {
+  text-align: center;
+}
+.francais--editZone{
+  margin: auto
+}
+
+@media (min-width: 740px) {
+  .App-editeur{
+    width: 80%;
+    margin: auto;
+  }
+}
+
+@media (max-width: 400px) {
+  .App-editeur{
+    padding: 0;
+    margin: auto;
+  }
+}
+
+textarea {
+  display: inline-block;
+  width : 40%;
+  height : 70%;
+}
+
+
+.tuto{
+  transition: height 0.2s linear;
+  overflow: hidden;
+}
+.App-options{
+  display: block;
+  margin-top: 20px
+}
+
+input{
+  border-radius: 7px;
+  padding: 5px;
+  border: 1px solid #aaa;
+}
+
+.i--title{
+  width: 50%;
+}
+
+.App-options > * {
+  margin-left: 10px;
+  border-radius: 5px;
+  padding: 5px;
+}
+
+.App-logo {
+  animation: App-logo-spin infinite 20s linear;
+  height: 40vmin;
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.messages{
+  margin: 30px
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -7,7 +7,8 @@ import Categories from "./Components/Categories";
 import "./css/App.css";
 import { db } from "./store/firebase";
 import { updateTrad } from "./helpers/dbUtils";
-import { exportCantiquesToZip, getCantiqueAndExport } from "./helpers/exportCantique";
+import { getCantiqueAndExport } from "./helpers/exportCantique";
+import { canEdit, isACantique } from "./helpers/checkUtils";
 
 const App = () => {
   const dispatch = useDispatch();
@@ -131,6 +132,7 @@ const App = () => {
           </button>
         </div>
         <div className="tuto" style={{ height: show }}>
+          <h2>Pour éditer un cantique</h2>
           <p>
             Étape :
             <br />
@@ -155,6 +157,29 @@ const App = () => {
               <br /> Remplissez ou corrigez le champ.
             </i>
           </p>
+          <h2>Pour exporter un/des cantique(s)</h2>
+          <ul style={{ fontSize: "1em", listStyleType: "none" }}>
+            <li>
+              1. Entrer le/les numeros de cantique que vous voulez exporter
+              <br />
+              <span style={{ fontSize: "13px" }}>
+                a. definir les numeros séparé d'une virgule, exemple:
+                300,304,800
+              </span>
+              <br />
+              <span style={{ fontSize: "13px" }}>
+                b. definir une intervalle de valeur avec un tiret, exemple:
+                300-800
+              </span>
+            </li>
+            <li>
+              2. Cliquer sur exporter, des fichier txt sera téléchargé en .txt
+            </li>
+            <li>
+              3. Si une pop up vous demande d'autoriser le téléchargement de
+              plusieurs fichier, accéptez
+            </li>
+          </ul>
         </div>
         <div className="messages">
           <span style={{ color: messages.color }}>{messages.message}</span>
@@ -165,21 +190,30 @@ const App = () => {
           <button
             onClick={() => {
               if (id.indexOf(",") !== -1) {
-                alert('Je ne peux pas traiter plusieurs cantiques en mâme temps');
-                return
-              };
-              id && dispatch({ type: "GET_CANTIQUE_TRADUCTION", id: num });
-              setMessages({
-                color: "#3E6",
-                message: `Cantique ${id} prêt à être modifié`,
-              });
+                alert(
+                  "Je ne peux pas traiter plusieurs cantiques en mâme temps"
+                );
+                return;
+              }
+
+              if (isACantique(id)) {
+                dispatch({ type: "GET_CANTIQUE_TRADUCTION", id: num });
+                setMessages({
+                  color: "#3E6",
+                  message: `Cantique ${id} prêt à être modifié`,
+                });
+              }
+              else {
+                setMessages({
+                  color: "#F33",
+                  message: `Cantique ${id} n'existe pas et ne peut pas être modifié`,
+                });
+              }
             }}
           >
             Commencer
           </button>
-          <button onClick={() => getCantiqueAndExport(id)}>
-            Exporter
-          </button>
+          <button onClick={() => getCantiqueAndExport(id)}>Exporter</button>
           <div>
             <TextInput name={"title"} style={{ width: "100%" }} />
           </div>

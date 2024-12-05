@@ -23,10 +23,8 @@ const trad = (state = {}, action) => {
   switch (action.type) {
     case "GET_TRAD_OK":
       return action.trad;
-      break;
     case "GET_TRAD_FAIL":
       return { strophe: [{ trad: "", cantique: "" }] };
-      break;
     default:
       return state;
   }

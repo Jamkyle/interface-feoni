@@ -1,54 +1,70 @@
-const middlewares = (store) => (next) => (action) => {
-  // console.log(action);
-  if (action.type === "SET_ID") next(action);
-  if (action.type === "SET_TITLE") next(action);
+import { db } from "../store/firebase";
+import {
+  ref,
+  query,
+  orderByChild,
+  equalTo,
+  get,
+  onValue,
+} from "firebase/database";
 
-  if (action.type === "GET_CANTIQUE_TRADUCTION") {
-    // console.log(action.id);
-    let num;
-    num = action.id.toString();
-    let database = action.firebase.database();
-    database
-      .ref("/Traduction")
-      .orderByChild("id")
-      .equalTo(num)
-      .once("value")
-      .then((trad) => {
-        let obj = trad.val();
-        let key = JSON.stringify(obj).match(/(?:")(.*)(?:":{)/)[1];
-        store.dispatch({ type: "SET_KEY", key: key });
-        next({ type: "GET_TRAD_OK", trad: obj[key] });
-      })
-      .catch((e) => {
+const middlewares = (store) => (next) => async (action) => {
+  switch (action.type) {
+    case "SET_ID":
+    case "SET_TITLE":
+    case "SET_KEY":
+    case "SET_CAT":
+    case "SET_DATA_TRAD":
+    case "SET_DATA_CANTIQUE":
+      next(action);
+      break;
+
+    case "GET_CANTIQUE_TRADUCTION":
+      try {
+        const num = action.id.toString();
+        const databaseRef = query(
+          ref(db, "/Traduction"),
+          orderByChild("id"),
+          equalTo(num)
+        );
+        const snapshot = await get(databaseRef);
+
+        if (snapshot.exists()) {
+          const obj = snapshot.val();
+          const key = Object.keys(obj)[0]; // Récupère la première clé
+          const trad = obj[key];
+          console.log(trad)
+
+          store.dispatch({ type: "SET_KEY", key });
+          next({ type: "GET_TRAD_OK", trad });
+        } else {
+          next({ type: "GET_TRAD_FAIL" });
+        }
+      } catch (error) {
+        console.error("Error fetching cantique traduction:", error);
         next({ type: "GET_TRAD_FAIL" });
-      });
-  }
+      }
+      break;
 
-  if (action.type === "GET_LIST_CANTIQUE") {
-    // console.log(action.id);
-    let database = action.firebase.database();
-    database
-      .ref("/Traduction")
-      .orderByChild("id")
-      .on("value", (trad) => {
-        let obj = [];
-        trad.forEach((e) => {
-          obj.push(e.val());
+    case "GET_LIST_CANTIQUE":
+      try {
+        const databaseRef = query(ref(db, "/Traduction"), orderByChild("id"));
+        onValue(databaseRef, (snapshot) => {
+          const obj = [];
+          snapshot.forEach((childSnapshot) => {
+            obj.push(childSnapshot.val());
+          });
+
+          next({ type: "DO_LIST_CANTIQUES", list: obj });
         });
-        next({ type: "DO_LIST_CANTIQUES", list: obj });
-      });
-  }
+      } catch (error) {
+        console.error("Error fetching list of cantiques:", error);
+        next({ type: "DO_LIST_CANTIQUES_FAIL" });
+      }
+      break;
 
-  if (action.type === "SET_KEY" || action.type === "SET_CAT") {
-    next(action);
-  }
-
-  if (action.type === "SET_DATA_TRAD") {
-    next(action);
-  }
-
-  if (action.type === "SET_DATA_CANTIQUE") {
-    next(action);
+    default:
+      next(action);
   }
 };
 

@@ -1,227 +1,209 @@
-import React, { Component } from "react";
-import { connect } from "react-redux";
-import { withFirebase } from "react-redux-firebase";
+import React, { useState, useEffect, useMemo } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import { ref, push, update, getDatabase } from "firebase/database"; // Firebase modulaire
 import TextAera from "./Components/TextAera";
 import TextInput from "./Components/TextInput";
 import Categories from "./Components/Categories";
-import Modal from "./Components/Modal";
 import "./css/App.css";
+import { db } from "./store/firebase";
+import { updateTrad } from "./helpers/dbUtils";
+import { exportCantiquesToZip, getCantiqueAndExport } from "./helpers/exportCantique";
 
-class App extends Component {
-  constructor(props) {
-    super(props);
-    this.francais = {};
-    this.malgache = {};
-    this.title = "";
-    this.state = { show: 250 };
-    this.messages = "";
-    this.state = { list: [], listTrad: [] };
-  }
+const App = () => {
+  const dispatch = useDispatch();
 
-  componentDidMount() {
-    const { firebase, getList, listCantiques } = this.props;
-    getList(firebase);
-  }
+  // State local
+  const [show, setShow] = useState(250);
+  const [list, setList] = useState([]);
+  const [listTrad, setListTrad] = useState([]);
+  const [messages, setMessages] = useState("");
 
-  componentWillUpdate(nextProps) {
-    if (nextProps.trad !== this.props.trad) {
-      this.francais = nextProps.trad.strophe[0].trad;
-      this.malgache = nextProps.trad.strophe[0].cantique || "";
-      this.title = nextProps.trad.titre;
+  // Accès au state Redux
+  const {
+    id,
+    trad,
+    listCantiques,
+    categories,
+    tradData,
+    cantiqueData,
+  } = useSelector((state) => state);
+
+  // Variables locales
+  const francais = useMemo(() => trad?.strophe?.[0]?.trad || "", [trad]);
+  const malgache = useMemo(() => trad?.strophe?.[0]?.cantique || "", [trad]);
+  const title = useMemo(() => trad?.titre || "", [trad]);
+
+  // Charger la liste des cantiques au montage
+  useEffect(() => {
+    dispatch({ type: "GET_LIST_CANTIQUE" });
+  }, [dispatch]);
+  // Mettre à jour les listes lorsque listCantiques change
+  useEffect(() => {
+    if (listCantiques) {
+      const newList = listCantiques.map((e) =>
+        isNaN(e.id) ? e.id : Number(e.id)
+      );
+      const newListTrad = listCantiques
+        .filter((e) => e.strophe[0]?.trad !== "")
+        .map((e) => (isNaN(e.id) ? e.id : Number(e.id)));
+
+      setList(newList);
+      setListTrad(newListTrad);
     }
-    if (nextProps.listCantiques !== this.props.listCantiques) {
-      let list = nextProps.listCantiques.map((e) => {
-        return isNaN(e.id) ? e.id : Number(e.id);
-      });
-      let listTrad = nextProps.listCantiques.map((e) => {
-        if (e.strophe[0].trad !== "") {
-          return isNaN(e.id) ? e.id : Number(e.id);
-        }
-      });
-      this.setState({ list: list, listTrad: listTrad });
-    }
-  }
+  }, [listCantiques]);
 
-  showHandle() {
-    this.state.show >= 200
-      ? this.setState({ show: 0 })
-      : this.setState({ show: 250 });
-  }
-
-  submit(data) {
-    const { firebase, keyData, trad, id, title, go } = this.props;
-    let database = firebase.database().ref("/Traduction");
-    let dateLastUpdate = new Date().toISOString(); // Génère le timestamp
-
-    if (trad.id) {
-      // Mise à jour existante
-      this.messages = {
-        color: "#3E6",
-        message:
-          "Le cantique :" +
-          id +
-          " a bien été modifié et sauvegardé dans la base",
-      };
-
-      database.child(keyData).update({
-        strophe: [data],
-        date_last_update: dateLastUpdate, // Ajout de la clé de mise à jour
-      });
-
-      go(id, firebase);
-    } else {
-      // Création d'un nouvel élément
-      database.push({
-        id: id,
-        strophe: [data],
-        titre: title,
-        date_last_update: dateLastUpdate, // Ajout de la clé de mise à jour
-      });
-
-      this.messages = {
-        color: "#3E6",
-        message:
-          "Le cantique :" + id + " a bien été créé et sauvegardé dans la base",
-      };
-
-      go(id, firebase);
-    }
-  }
-
-  listDiff = (list) => {
-    let arr1 = [];
-    for (let i = 1; i < 828; i++) {
-      arr1[i - 1] = i;
-    }
-    return arr1.filter((x) => !list.includes(x));
+  // Fonction pour afficher/cacher le tutoriel
+  const toggleShow = () => {
+    setShow((prevShow) => (prevShow >= 200 ? 0 : 250));
   };
 
-  affiche() {
-    this.messages = {
-      color: "#3E6",
-      message: "Cantique " + this.props.id + " prêt à être modifié",
-    };
-  }
+  // Fonction pour soumettre un cantique
+  const submit = async (data) => {
+    const dateLastUpdate = new Date().toISOString();
+    if (trad?.id) {
+      const isSuccess = await updateTrad(trad.id, data);
+      // Mise à jour existante
+      const message = isSuccess
+        ? `Le cantique : ${trad.id} a bien été modifié et sauvegardé dans la base`
+        : `une erreur est survenue lors de la mise à jour du cantique : ${trad.id}`;
+      setMessages({
+        color: isSuccess ? "#3E6" : "#F33",
+        message,
+      });
 
-  render() {
-    const {
-      go,
-      firebase,
-      id,
-      categories,
-      tradData,
-      cantiqueData,
-      messages,
-    } = this.props;
-    const { list, listTrad } = this.state;
-    let aList = list.sort((a, b) => a - b);
-    let listDiffTrad = this.listDiff(listTrad).map((e) => (
-      <span style={{ color: "#4e7" }} key={e}>
-        {" "}
-        {e}{" "}
-      </span>
-    ));
-    let num = id.includes(categories) ? id : categories + id;
-    return (
-      <div className="App">
-        <h1>
-          Interface Gestion <br /> Feoni{" "}
-        </h1>
-        <div className="App-editeur">
-          <div>
-            <a
-              onClick={() => {
-                this.showHandle();
-              }}
-              style={{
-                cursor: "pointer",
-                background: "#47e",
-                border: "1px solid black",
-                padding: "5px",
-                borderRadius: "10px",
-                color: "#eee",
-              }}
-            >
-              afficher/cacher le tutoriel
-            </a>
-          </div>
-          <div className="tuto" style={{ height: this.state.show }}>
-            <p>
-              Etape:
-              <br />
-              1. Choisir la categorie (FFPM, ANTEMA, TSANTA ...)
-              <br />
-              2. Entrer le numéro du cantique
-              <br />
-              3. Appuyez sur Commencer directement{" "}
-              <i>( oui le titre se rempli automatiquement :) )</i>
-              <br />
-              <br />
-              4. Remplir la traduction
-              <br />
-              5. Remplir le cantique en malgache s'il n'apparait pas
-              <br />
-              6. Appuyez sur Sauvegarder tout en base de la page pour
-              sauvegarder dans la base
-            </p>
-            <p style={{ fontSize: "0.8em", color: "#47E" }}>
-              <i>
-                Si aucun titre n'est affiché ou que le titre n'a pas changé
-                c'est qu'il n'existe pas
-                <br /> il suffit donc de remplir la case ou la corrigée
-              </i>
-            </p>
-          </div>
-          <div className="messages">
-            <span style={{ color: this.messages.color }}>
-              {this.messages.message}
-            </span>
-          </div>
-          <div className="App-options">
-            <Categories cats={["FFPM", "TSANTA", "ANTEMA", "FF"]} />
-            <TextInput name={"num"} />
-            <input
-              type="button"
-              value="Commencer"
-              onClick={() => {
-                id && go(num, firebase);
-                this.affiche();
-              }}
-            />
-            <div>
-              <TextInput name={"title"} style={{ width: "100%" }} />
-            </div>
-          </div>
-          <TextAera
-            name={"francais"}
-            placeholder="Ici doit se trouver le contenu en francais"
-            content={this.francais}
-          />
-          <TextAera
-            name={"malgache"}
-            placeholder="Ici le contenu en malgache"
-            content={this.malgache}
-          />
+      dispatch({ type: "GET_CANTIQUE_TRADUCTION", id: trad.id });
+    } else {
+      // Création d'un nouvel élément
+      await push(ref(db, "/Traduction"), {
+        id,
+        strophe: [data],
+        titre: title,
+        date_last_update: dateLastUpdate,
+      });
+
+      setMessages({
+        color: "#3E6",
+        message: `Le cantique : ${id} a bien été créé et sauvegardé dans la base`,
+      });
+
+      dispatch({ type: "GET_CANTIQUE_TRADUCTION", id });
+    }
+  };
+
+  // Calculer les cantiques sans traduction
+  const listDiff = (list) => {
+    const fullList = Array.from({ length: 828 }, (_, i) => i + 1);
+    return fullList.filter((x) => !list.includes(x));
+  };
+
+  const sortedList = useMemo(() => list.sort((a, b) => a - b), [list]);
+  const listDiffTrad = useMemo(
+    () =>
+      listDiff(listTrad).map((e) => (
+        <span style={{ color: "#4e7", margin: "2px" }} key={e}>
+          {e}
+        </span>
+      )),
+    [listTrad]
+  );
+
+  const num = id.includes(categories) ? id : categories + id;
+
+  return (
+    <div className="App">
+      <h1>
+        Interface Gestion <br /> Feoni
+      </h1>
+      <div className="App-editeur">
+        <div>
+          <button
+            onClick={toggleShow}
+            style={{
+              cursor: "pointer",
+              background: "#47e",
+              border: "1px solid black",
+              padding: "5px",
+              borderRadius: "10px",
+              color: "#eee",
+            }}
+          >
+            Afficher/Cacher le tutoriel
+          </button>
         </div>
-        <input
-          type="button"
-          value="Sauvegarder"
-          onClick={() =>
-            this.submit({ trad: tradData, cantique: cantiqueData })
-          }
+        <div className="tuto" style={{ height: show }}>
+          <p>
+            Étape :
+            <br />
+            1. Choisir la catégorie (FFPM, ANTEMA, TSANTA ...)
+            <br />
+            2. Entrer le numéro du cantique
+            <br />
+            3. Appuyez sur Commencer directement{" "}
+            <i>(oui le titre se remplit automatiquement :) )</i>
+            <br />
+            <br />
+            4. Remplir la traduction
+            <br />
+            5. Remplir le cantique en malgache s'il n'apparaît pas
+            <br />
+            6. Appuyez sur Sauvegarder pour enregistrer dans la base
+          </p>
+          <p style={{ fontSize: "0.8em", color: "#47E" }}>
+            <i>
+              Si aucun titre n'est affiché ou qu'il n'a pas changé, c'est qu'il
+              n'existe pas.
+              <br /> Remplissez ou corrigez le champ.
+            </i>
+          </p>
+        </div>
+        <div className="messages">
+          <span style={{ color: messages.color }}>{messages.message}</span>
+        </div>
+        <div className="App-options">
+          <Categories cats={["FFPM", "TSANTA", "ANTEMA", "FF"]} />
+          <TextInput name={"num"} />
+          <button
+            onClick={() => {
+              if (id.indexOf(",") !== -1) {
+                alert('Je ne peux pas traiter plusieurs cantiques en mâme temps');
+                return
+              };
+              id && dispatch({ type: "GET_CANTIQUE_TRADUCTION", id: num });
+              setMessages({
+                color: "#3E6",
+                message: `Cantique ${id} prêt à être modifié`,
+              });
+            }}
+          >
+            Commencer
+          </button>
+          <button onClick={() => getCantiqueAndExport(id)}>
+            Exporter
+          </button>
+          <div>
+            <TextInput name={"title"} style={{ width: "100%" }} />
+          </div>
+        </div>
+        <TextAera
+          name={"francais"}
+          placeholder="Contenu en français"
+          content={francais}
         />
-        <p>Liste des Cantiques sans traduction</p>
-        <div>{listDiffTrad}</div>
+        <TextAera
+          name={"malgache"}
+          placeholder="Contenu en malgache"
+          content={malgache}
+        />
       </div>
-    );
-  }
-}
+      <button
+        onClick={() => submit({ trad: tradData, cantique: cantiqueData })}
+      >
+        Sauvegarder
+      </button>
+      <p>Liste des cantiques sans traduction ({listDiffTrad.length})</p>
+      <div style={{ display: "flex", flexWrap: "wrap" }}>{listDiffTrad}</div>
+    </div>
+  );
+};
 
-export default connect(
-  (state) => state,
-  (dispatch) => ({
-    go: (id, firebase) =>
-      dispatch({ type: "GET_CANTIQUE_TRADUCTION", id, firebase }),
-    getList: (firebase) => dispatch({ type: "GET_LIST_CANTIQUE", firebase }),
-  })
-)(withFirebase(App));
+export default App;

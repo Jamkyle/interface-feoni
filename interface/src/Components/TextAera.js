@@ -37,7 +37,7 @@ class TextAera extends Component{
 
   render(){
     const { name } = this.props
-    return <textarea rows='30' cols='70' id={ name } ref={this.props.ref} value={this.state.value} placeholder={this.props.placeholder} className={this.props.name+'--editZone text-area-content'} onChange={ this.textChange } />
+    return <textarea rows='30' id={ name } ref={this.props.ref} value={this.state.value} placeholder={this.props.placeholder} className={this.props.name+'--editZone text-area-content'} onChange={ this.textChange } />
   }
 
 }

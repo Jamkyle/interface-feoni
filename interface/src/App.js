@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { ref, push, update, getDatabase } from "firebase/database"; // Firebase modulaire
+import { ref, push } from "firebase/database"; // Firebase modulaire
 import TextAera from "./Components/TextAera";
 import TextInput from "./Components/TextInput";
 import Categories from "./Components/Categories";
@@ -8,26 +8,20 @@ import "./css/App.css";
 import { db } from "./store/firebase";
 import { updateTrad } from "./helpers/dbUtils";
 import { getCantiqueAndExport } from "./helpers/exportCantique";
-import { canEdit, isACantique } from "./helpers/checkUtils";
+import { isACantique } from "./helpers/checkUtils";
 
 const App = () => {
   const dispatch = useDispatch();
 
   // State local
   const [show, setShow] = useState(250);
-  const [list, setList] = useState([]);
+  const [, setList] = useState([]);
   const [listTrad, setListTrad] = useState([]);
   const [messages, setMessages] = useState("");
 
   // Accès au state Redux
-  const {
-    id,
-    trad,
-    listCantiques,
-    categories,
-    tradData,
-    cantiqueData,
-  } = useSelector((state) => state);
+  const { id, trad, listCantiques, categories, tradData, cantiqueData } =
+    useSelector((state) => state);
 
   // Variables locales
   const francais = useMemo(() => trad?.strophe?.[0]?.trad || "", [trad]);
@@ -96,8 +90,6 @@ const App = () => {
     const fullList = Array.from({ length: 828 }, (_, i) => i + 1);
     return fullList.filter((x) => !list.includes(x));
   };
-
-  const sortedList = useMemo(() => list.sort((a, b) => a - b), [list]);
   const listDiffTrad = useMemo(
     () =>
       listDiff(listTrad).map((e) => (
@@ -202,8 +194,7 @@ const App = () => {
                   color: "#3E6",
                   message: `Cantique ${id} prêt à être modifié`,
                 });
-              }
-              else {
+              } else {
                 setMessages({
                   color: "#F33",
                   message: `Cantique ${id} n'existe pas et ne peut pas être modifié`,
@@ -218,16 +209,18 @@ const App = () => {
             <TextInput name={"title"} style={{ width: "100%" }} />
           </div>
         </div>
-        <TextAera
-          name={"francais"}
-          placeholder="Contenu en français"
-          content={francais}
-        />
-        <TextAera
-          name={"malgache"}
-          placeholder="Contenu en malgache"
-          content={malgache}
-        />
+        <div className="App-editZone">
+          <TextAera
+            name={"francais"}
+            placeholder="Contenu en français"
+            content={francais}
+          />
+          <TextAera
+            name={"malgache"}
+            placeholder="Contenu en malgache"
+            content={malgache}
+          />
+        </div>
       </div>
       <button
         onClick={() => submit({ trad: tradData, cantique: cantiqueData })}

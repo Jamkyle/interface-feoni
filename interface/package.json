@@ -5,6 +5,7 @@
   "dependencies": {
     "@reduxjs/toolkit": "^2.4.0",
     "dotenv": "^16.4.7",
+    "eslint": "^9.16.0",
     "file-saver": "^2.0.5",
     "firebase": "^11.0.2",
     "jszip": "^3.10.1",
@@ -31,5 +32,10 @@
     "not dead",
     "not ie <= 11",
     "not op_mini all"
-  ]
+  ],
+  "devDependencies": {
+    "@eslint/js": "^9.16.0",
+    "eslint-plugin-react": "^7.37.2",
+    "globals": "^15.13.0"
+  }
 }

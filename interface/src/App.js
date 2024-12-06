@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { ref, push, update, getDatabase } from "firebase/database"; // Firebase modulaire
+import { ref, push } from "firebase/database"; // Firebase modulaire
 import TextAera from "./Components/TextAera";
 import TextInput from "./Components/TextInput";
 import Categories from "./Components/Categories";
@@ -8,7 +8,7 @@ import "./css/App.css";
 import { db } from "./store/firebase";
 import { updateTrad } from "./helpers/dbUtils";
 import { getCantiqueAndExport } from "./helpers/exportCantique";
-import { canEdit, isACantique } from "./helpers/checkUtils";
+import { isACantique } from "./helpers/checkUtils";
 
 const App = () => {
   const dispatch = useDispatch();

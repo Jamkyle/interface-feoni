@@ -36,4 +36,5 @@ jobs:
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_HIRAAPP_E0DAC }}
-          projectId: hiraapp-e0dac
+          projectId: ${{ secrets.FIREBASE_PROJECT_ID }}
+          entryPoint: interface

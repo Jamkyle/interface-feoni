@@ -28,10 +28,11 @@ jobs:
 
       - name: Install dependencies
         run: cd interface && yarn install --frozen-lockfile && yarn build
-      
+
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_HIRAAPP_E0DAC }}
           channelId: live
-          projectId: hiraapp-e0dac
+          projectId: ${{ secrets.FIREBASE_PROJECT_ID }}
+          entryPoint: interface

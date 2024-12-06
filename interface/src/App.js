@@ -209,16 +209,18 @@ const App = () => {
             <TextInput name={"title"} style={{ width: "100%" }} />
           </div>
         </div>
-        <TextAera
-          name={"francais"}
-          placeholder="Contenu en français"
-          content={francais}
-        />
-        <TextAera
-          name={"malgache"}
-          placeholder="Contenu en malgache"
-          content={malgache}
-        />
+        <div className="App-editZone">
+          <TextAera
+            name={"francais"}
+            placeholder="Contenu en français"
+            content={francais}
+          />
+          <TextAera
+            name={"malgache"}
+            placeholder="Contenu en malgache"
+            content={malgache}
+          />
+        </div>
       </div>
       <button
         onClick={() => submit({ trad: tradData, cantique: cantiqueData })}

@@ -20,6 +20,7 @@ jobs:
           cat <<EOF > ./interface/src/firebaseconfig.json
           {
             "apiKey": "${{ secrets.FIREBASE_API_KEY }}",
+            "databaseURL": "${{ secrets.FIREBASE_DATABASE_URL }}",
             "authDomain": "${{ secrets.FIREBASE_AUTH_DOMAIN }}",
             "projectId": "${{ secrets.FIREBASE_PROJECT_ID }}",
             "storageBucket": "${{ secrets.FIREBASE_STORAGE_BUCKET }}",

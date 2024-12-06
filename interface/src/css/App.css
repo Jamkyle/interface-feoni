@@ -1,21 +1,28 @@
 .App {
   text-align: center;
 }
-.francais--editZone{
-  margin: auto
-}
 
 .App-editeur{
   width: 80%;
   margin: auto;
+  display: flex;
+  flex-direction: column;
+}
+.App-editZone{
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .text-area-content{
   max-width: 100%;
+  flex: 1 400px;
+  margin: auto;
 }
 
 .tuto{
   transition: height 0.2s linear;
+  margin-bottom: 0.5rem;
   text-align: left;
   overflow: auto;
 }
@@ -64,8 +71,8 @@ input{
   color: white;
 }
 
-.messages{
-  margin: 30px
+.messages {
+  margin: 0.2rem
 }
 
 .App-link {

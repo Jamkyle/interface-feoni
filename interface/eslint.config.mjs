@@ -9,7 +9,11 @@ export default [
   {
     rules: {
       ...pluginJs.configs.recommended.rules, // Use recommended JavaScript rules
-      ...pluginReact.configs.flat.recommended.rules, // Use recommended React rules
+      ...pluginReact.configs.flat.recommended.rules, // Use recommended React rules,
+      "no-unused-vars": [
+        "warn",
+        { vars: "all", args: "after-used", ignoreRestSiblings: false },
+      ],
     },
   },
 ];

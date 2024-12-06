@@ -15,7 +15,7 @@ const App = () => {
 
   // State local
   const [show, setShow] = useState(250);
-  const [list, setList] = useState([]);
+  const [, setList] = useState([]);
   const [listTrad, setListTrad] = useState([]);
   const [messages, setMessages] = useState("");
 

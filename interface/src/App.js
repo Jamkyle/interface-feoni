@@ -20,14 +20,8 @@ const App = () => {
   const [messages, setMessages] = useState("");
 
   // Accès au state Redux
-  const {
-    id,
-    trad,
-    listCantiques,
-    categories,
-    tradData,
-    cantiqueData,
-  } = useSelector((state) => state);
+  const { id, trad, listCantiques, categories, tradData, cantiqueData } =
+    useSelector((state) => state);
 
   // Variables locales
   const francais = useMemo(() => trad?.strophe?.[0]?.trad || "", [trad]);
@@ -96,8 +90,6 @@ const App = () => {
     const fullList = Array.from({ length: 828 }, (_, i) => i + 1);
     return fullList.filter((x) => !list.includes(x));
   };
-
-  const sortedList = useMemo(() => list.sort((a, b) => a - b), [list]);
   const listDiffTrad = useMemo(
     () =>
       listDiff(listTrad).map((e) => (
@@ -202,8 +194,7 @@ const App = () => {
                   color: "#3E6",
                   message: `Cantique ${id} prêt à être modifié`,
                 });
-              }
-              else {
+              } else {
                 setMessages({
                   color: "#F33",
                   message: `Cantique ${id} n'existe pas et ne peut pas être modifié`,

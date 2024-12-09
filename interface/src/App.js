@@ -18,11 +18,13 @@ const App = () => {
   const [, setList] = useState([]);
   const [listTrad, setListTrad] = useState([]);
   const [messages, setMessages] = useState("");
+  const [isSaved, setIsSaved] = useState(false);
 
   // Accès au state Redux
   const { id, trad, listCantiques, categories, tradData, cantiqueData } =
     useSelector((state) => state);
 
+  const num = id.includes(categories) ? id : categories + id;
   // Variables locales
   const francais = useMemo(() => trad?.strophe?.[0]?.trad || "", [trad]);
   const malgache = useMemo(() => trad?.strophe?.[0]?.cantique || "", [trad]);
@@ -39,7 +41,7 @@ const App = () => {
         isNaN(e.id) ? e.id : Number(e.id)
       );
       const newListTrad = listCantiques
-        .filter((e) => e.strophe[0]?.trad !== "")
+        .filter((e) => e.strophe[0]?.trad == "")
         .map((e) => (isNaN(e.id) ? e.id : Number(e.id)));
 
       setList(newList);
@@ -66,7 +68,8 @@ const App = () => {
         message,
       });
 
-      dispatch({ type: "GET_CANTIQUE_TRADUCTION", id: trad.id });
+      isSuccess && dispatch({ type: "GET_CANTIQUE_TRADUCTION", id: trad.id });
+      isSuccess && setIsSaved(true);
     } else {
       // Création d'un nouvel élément
       await push(ref(db, "/Traduction"), {
@@ -81,18 +84,45 @@ const App = () => {
         message: `Le cantique : ${id} a bien été créé et sauvegardé dans la base`,
       });
 
+      setIsSaved(true);
       dispatch({ type: "GET_CANTIQUE_TRADUCTION", id });
     }
   };
 
-  // Calculer les cantiques sans traduction
-  const listDiff = (list) => {
-    const fullList = Array.from({ length: 828 }, (_, i) => i + 1);
-    return fullList.filter((x) => !list.includes(x));
+  const onStartEdit = () => {
+    if (id.indexOf(",") !== -1) {
+      alert("Je ne peux pas traiter plusieurs cantiques en mâme temps");
+      return;
+    }
+
+    // TODO: isAcantique a corriger pour accepter les categories
+    if (isACantique(num)) {
+      if (trad && num !== trad.id && !isSaved) {
+        let answer = window.confirm(
+          "Vous vous aprêtez à modifier un autre cantique, voulez-vous vraiment continuer ?"
+        );
+        if (answer) {
+        } else {
+          return;
+        }
+      }
+      dispatch({ type: "GET_CANTIQUE_TRADUCTION", id: num });
+      setMessages({
+        color: "#3E6",
+        message: `Cantique ${id} prêt à être modifié`,
+      });
+    } else {
+      setMessages({
+        color: "#F33",
+        message: `Cantique ${num} n'existe pas et ne peut pas être modifié`,
+      });
+    }
   };
+
+  // Calculer les cantiques sans traduction
   const listDiffTrad = useMemo(
     () =>
-      listDiff(listTrad).map((e) => (
+      listTrad.map((e) => (
         <span style={{ color: "#4e7", margin: "2px" }} key={e}>
           {e}
         </span>
@@ -100,7 +130,7 @@ const App = () => {
     [listTrad]
   );
 
-  const num = id.includes(categories) ? id : categories + id;
+  console.log("list", listDiffTrad);
 
   return (
     <div className="App">
@@ -179,31 +209,7 @@ const App = () => {
         <div className="App-options">
           <Categories cats={["FFPM", "TSANTA", "ANTEMA", "FF"]} />
           <TextInput name={"num"} />
-          <button
-            onClick={() => {
-              if (id.indexOf(",") !== -1) {
-                alert(
-                  "Je ne peux pas traiter plusieurs cantiques en mâme temps"
-                );
-                return;
-              }
-
-              if (isACantique(id)) {
-                dispatch({ type: "GET_CANTIQUE_TRADUCTION", id: num });
-                setMessages({
-                  color: "#3E6",
-                  message: `Cantique ${id} prêt à être modifié`,
-                });
-              } else {
-                setMessages({
-                  color: "#F33",
-                  message: `Cantique ${id} n'existe pas et ne peut pas être modifié`,
-                });
-              }
-            }}
-          >
-            Commencer
-          </button>
+          <button onClick={onStartEdit}>Commencer</button>
           <button onClick={() => getCantiqueAndExport(id)}>Exporter</button>
           <div>
             <TextInput name={"title"} style={{ width: "100%" }} />

@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getDatabase } from 'firebase/database';
 
-import firebaseJson from '../config.json'
+import firebaseJson from '../firebaseconfig.json'
 
 const firebaseConfig = firebaseJson
 

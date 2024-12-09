@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { ref, push, update, getDatabase } from "firebase/database"; // Firebase modulaire
+import { ref, push } from "firebase/database"; // Firebase modulaire
 import TextAera from "./Components/TextAera";
 import TextInput from "./Components/TextInput";
 import Categories from "./Components/Categories";
@@ -8,27 +8,23 @@ import "./css/App.css";
 import { db } from "./store/firebase";
 import { updateTrad } from "./helpers/dbUtils";
 import { getCantiqueAndExport } from "./helpers/exportCantique";
-import { canEdit, isACantique } from "./helpers/checkUtils";
+import { isACantique } from "./helpers/checkUtils";
 
 const App = () => {
   const dispatch = useDispatch();
 
   // State local
   const [show, setShow] = useState(250);
-  const [list, setList] = useState([]);
+  const [, setList] = useState([]);
   const [listTrad, setListTrad] = useState([]);
   const [messages, setMessages] = useState("");
+  const [isSaved, setIsSaved] = useState(false);
 
   // Accès au state Redux
-  const {
-    id,
-    trad,
-    listCantiques,
-    categories,
-    tradData,
-    cantiqueData,
-  } = useSelector((state) => state);
+  const { id, trad, listCantiques, categories, tradData, cantiqueData } =
+    useSelector((state) => state);
 
+  const num = id.includes(categories) ? id : categories + id;
   // Variables locales
   const francais = useMemo(() => trad?.strophe?.[0]?.trad || "", [trad]);
   const malgache = useMemo(() => trad?.strophe?.[0]?.cantique || "", [trad]);
@@ -45,7 +41,7 @@ const App = () => {
         isNaN(e.id) ? e.id : Number(e.id)
       );
       const newListTrad = listCantiques
-        .filter((e) => e.strophe[0]?.trad !== "")
+        .filter((e) => e.strophe[0]?.trad === "")
         .map((e) => (isNaN(e.id) ? e.id : Number(e.id)));
 
       setList(newList);
@@ -72,7 +68,8 @@ const App = () => {
         message,
       });
 
-      dispatch({ type: "GET_CANTIQUE_TRADUCTION", id: trad.id });
+      isSuccess && dispatch({ type: "GET_CANTIQUE_TRADUCTION", id: trad.id });
+      isSuccess && setIsSaved(true);
     } else {
       // Création d'un nouvel élément
       await push(ref(db, "/Traduction"), {
@@ -87,20 +84,45 @@ const App = () => {
         message: `Le cantique : ${id} a bien été créé et sauvegardé dans la base`,
       });
 
+      setIsSaved(true);
       dispatch({ type: "GET_CANTIQUE_TRADUCTION", id });
     }
   };
 
-  // Calculer les cantiques sans traduction
-  const listDiff = (list) => {
-    const fullList = Array.from({ length: 828 }, (_, i) => i + 1);
-    return fullList.filter((x) => !list.includes(x));
+  const onStartEdit = () => {
+    if (id.indexOf(",") !== -1) {
+      alert("Je ne peux pas traiter plusieurs cantiques en mâme temps");
+      return;
+    }
+
+    // TODO: isAcantique a corriger pour accepter les categories
+    if (isACantique(num)) {
+      if (trad && num !== trad.id && !isSaved) {
+        let answer = window.confirm(
+          "Vous vous aprêtez à modifier un autre cantique, voulez-vous vraiment continuer ?"
+        );
+        if (answer) {
+        } else {
+          return;
+        }
+      }
+      dispatch({ type: "GET_CANTIQUE_TRADUCTION", id: num });
+      setMessages({
+        color: "#3E6",
+        message: `Cantique ${id} prêt à être modifié`,
+      });
+    } else {
+      setMessages({
+        color: "#F33",
+        message: `Cantique ${num} n'existe pas et ne peut pas être modifié`,
+      });
+    }
   };
 
-  const sortedList = useMemo(() => list.sort((a, b) => a - b), [list]);
+  // Calculer les cantiques sans traduction
   const listDiffTrad = useMemo(
     () =>
-      listDiff(listTrad).map((e) => (
+      listTrad.map((e) => (
         <span style={{ color: "#4e7", margin: "2px" }} key={e}>
           {e}
         </span>
@@ -108,7 +130,7 @@ const App = () => {
     [listTrad]
   );
 
-  const num = id.includes(categories) ? id : categories + id;
+  console.log("list", listDiffTrad);
 
   return (
     <div className="App">
@@ -187,47 +209,24 @@ const App = () => {
         <div className="App-options">
           <Categories cats={["FFPM", "TSANTA", "ANTEMA", "FF"]} />
           <TextInput name={"num"} />
-          <button
-            onClick={() => {
-              if (id.indexOf(",") !== -1) {
-                alert(
-                  "Je ne peux pas traiter plusieurs cantiques en mâme temps"
-                );
-                return;
-              }
-
-              if (isACantique(id)) {
-                dispatch({ type: "GET_CANTIQUE_TRADUCTION", id: num });
-                setMessages({
-                  color: "#3E6",
-                  message: `Cantique ${id} prêt à être modifié`,
-                });
-              }
-              else {
-                setMessages({
-                  color: "#F33",
-                  message: `Cantique ${id} n'existe pas et ne peut pas être modifié`,
-                });
-              }
-            }}
-          >
-            Commencer
-          </button>
+          <button onClick={onStartEdit}>Commencer</button>
           <button onClick={() => getCantiqueAndExport(id)}>Exporter</button>
           <div>
             <TextInput name={"title"} style={{ width: "100%" }} />
           </div>
         </div>
-        <TextAera
-          name={"francais"}
-          placeholder="Contenu en français"
-          content={francais}
-        />
-        <TextAera
-          name={"malgache"}
-          placeholder="Contenu en malgache"
-          content={malgache}
-        />
+        <div className="App-editZone">
+          <TextAera
+            name={"francais"}
+            placeholder="Contenu en français"
+            content={francais}
+          />
+          <TextAera
+            name={"malgache"}
+            placeholder="Contenu en malgache"
+            content={malgache}
+          />
+        </div>
       </div>
       <button
         onClick={() => submit({ trad: tradData, cantique: cantiqueData })}

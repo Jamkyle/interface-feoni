@@ -41,7 +41,7 @@ const App = () => {
         isNaN(e.id) ? e.id : Number(e.id)
       );
       const newListTrad = listCantiques
-        .filter((e) => e.strophe[0]?.trad == "")
+        .filter((e) => e.strophe[0]?.trad === "")
         .map((e) => (isNaN(e.id) ? e.id : Number(e.id)));
 
       setList(newList);

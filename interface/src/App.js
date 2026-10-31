@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { ref, push, get } from "firebase/database"; // Firebase modulaire
-import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
+import {
+  onAuthStateChanged,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  signOut,
+} from "firebase/auth";
 import TextAera from "./Components/TextAera";
 import TextInput from "./Components/TextInput";
 import Categories from "./Components/Categories";
@@ -38,6 +44,16 @@ const App = () => {
   const title = useMemo(() => trad?.titre || "", [trad]);
 
   // Session Google : seuls les uid listés dans /admins peuvent écrire
+  useEffect(() => {
+    getRedirectResult(auth).catch((error) => {
+      console.error("Erreur de connexion :", error);
+      setMessages({
+        color: "#F33",
+        message: `La connexion a échoué (${error.code})`,
+      });
+    });
+  }, []);
+
   useEffect(
     () =>
       onAuthStateChanged(auth, async (currentUser) => {
@@ -61,8 +77,19 @@ const App = () => {
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (error) {
+      // Popup bloquée par le navigateur : on bascule sur la redirection
+      if (
+        error.code === "auth/popup-blocked" ||
+        error.code === "auth/operation-not-supported-in-this-environment"
+      ) {
+        await signInWithRedirect(auth, googleProvider);
+        return;
+      }
       console.error("Erreur de connexion :", error);
-      setMessages({ color: "#F33", message: "La connexion a échoué" });
+      setMessages({
+        color: "#F33",
+        message: `La connexion a échoué (${error.code})`,
+      });
     }
   };
 

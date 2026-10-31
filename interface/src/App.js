@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { ref, push, update, getDatabase } from "firebase/database"; // Firebase modulaire
+import { ref, push, get } from "firebase/database"; // Firebase modulaire
+import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
 import TextAera from "./Components/TextAera";
 import TextInput from "./Components/TextInput";
 import Categories from "./Components/Categories";
 import "./css/App.css";
-import { db } from "./store/firebase";
+import { db, auth, googleProvider } from "./store/firebase";
 import { updateTrad } from "./helpers/dbUtils";
 import { getCantiqueAndExport } from "./helpers/exportCantique";
-import { canEdit, isACantique } from "./helpers/checkUtils";
+import { isACantique } from "./helpers/checkUtils";
 
 const App = () => {
   const dispatch = useDispatch();
@@ -18,6 +19,8 @@ const App = () => {
   const [list, setList] = useState([]);
   const [listTrad, setListTrad] = useState([]);
   const [messages, setMessages] = useState("");
+  const [user, setUser] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Accès au state Redux
   const {
@@ -33,6 +36,35 @@ const App = () => {
   const francais = useMemo(() => trad?.strophe?.[0]?.trad || "", [trad]);
   const malgache = useMemo(() => trad?.strophe?.[0]?.cantique || "", [trad]);
   const title = useMemo(() => trad?.titre || "", [trad]);
+
+  // Session Google : seuls les uid listés dans /admins peuvent écrire
+  useEffect(
+    () =>
+      onAuthStateChanged(auth, async (currentUser) => {
+        setUser(currentUser);
+        if (!currentUser) {
+          setIsAdmin(false);
+          return;
+        }
+        try {
+          const snapshot = await get(ref(db, `/admins/${currentUser.uid}`));
+          setIsAdmin(snapshot.val() === true);
+        } catch (error) {
+          console.error("Erreur lors de la vérification admin :", error);
+          setIsAdmin(false);
+        }
+      }),
+    []
+  );
+
+  const login = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (error) {
+      console.error("Erreur de connexion :", error);
+      setMessages({ color: "#F33", message: "La connexion a échoué" });
+    }
+  };
 
   // Charger la liste des cantiques au montage
   useEffect(() => {
@@ -60,6 +92,13 @@ const App = () => {
 
   // Fonction pour soumettre un cantique
   const submit = async (data) => {
+    if (!isAdmin) {
+      setMessages({
+        color: "#F33",
+        message: "Connectez-vous avec un compte administrateur pour sauvegarder",
+      });
+      return;
+    }
     const dateLastUpdate = new Date().toISOString();
     if (trad?.id) {
       const isSuccess = await updateTrad(trad.id, data);
@@ -75,12 +114,21 @@ const App = () => {
       dispatch({ type: "GET_CANTIQUE_TRADUCTION", id: trad.id });
     } else {
       // Création d'un nouvel élément
-      await push(ref(db, "/Traduction"), {
-        id,
-        strophe: [data],
-        titre: title,
-        date_last_update: dateLastUpdate,
-      });
+      try {
+        await push(ref(db, "/Traduction"), {
+          id,
+          strophe: [data],
+          titre: title,
+          date_last_update: dateLastUpdate,
+        });
+      } catch (error) {
+        console.error("Erreur lors de la création :", error);
+        setMessages({
+          color: "#F33",
+          message: `une erreur est survenue lors de la création du cantique : ${id}`,
+        });
+        return;
+      }
 
       setMessages({
         color: "#3E6",
@@ -115,6 +163,19 @@ const App = () => {
       <h1>
         Interface Gestion <br /> Feoni
       </h1>
+      <div className="App-auth">
+        {user ? (
+          <>
+            <span>
+              {user.email}
+              {isAdmin ? " (admin)" : " (lecture seule)"}
+            </span>
+            <button onClick={() => signOut(auth)}>Se déconnecter</button>
+          </>
+        ) : (
+          <button onClick={login}>Se connecter avec Google</button>
+        )}
+      </div>
       <div className="App-editeur">
         <div>
           <button
@@ -230,6 +291,8 @@ const App = () => {
         />
       </div>
       <button
+        disabled={!isAdmin}
+        title={isAdmin ? "" : "Réservé aux administrateurs"}
         onClick={() => submit({ trad: tradData, cantique: cantiqueData })}
       >
         Sauvegarder

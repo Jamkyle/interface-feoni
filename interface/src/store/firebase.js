@@ -1,15 +1,13 @@
 import { initializeApp } from 'firebase/app';
 import { getDatabase } from 'firebase/database';
+import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 
 import firebaseJson from '../config.json'
 
 const firebaseConfig = firebaseJson
 
-// const firebaseConfig = {
-//   apiKey: "AIzaSyD5VsOspNrkr7konEZwV6XYVWBRNhFWWBs",
-//   authDomain: "hiraapp-e0dac.firebaseapp.com",
-//   databaseURL: "https://hiraapp-e0dac.firebaseio.com"
-// }
-
 export const app = initializeApp(firebaseConfig)
 export const db = getDatabase(app)
+// Les règles RTDB n'autorisent l'écriture sur /Traduction qu'aux uid présents dans /admins
+export const auth = getAuth(app)
+export const googleProvider = new GoogleAuthProvider()

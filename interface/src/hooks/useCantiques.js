@@ -6,6 +6,7 @@ import { db } from "../store/firebase";
 const useCantiques = () => {
   const [cantiques, setCantiques] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(
     () =>
@@ -17,17 +18,19 @@ const useCantiques = () => {
             list.push({ key: child.key, ...child.val() });
           });
           setCantiques(list);
+          setError(false);
           setLoading(false);
         },
         (error) => {
           console.error("Erreur lors du chargement des cantiques :", error);
+          setError(true);
           setLoading(false);
         }
       ),
     []
   );
 
-  return { cantiques, loading };
+  return { cantiques, loading, error };
 };
 
 export default useCantiques;

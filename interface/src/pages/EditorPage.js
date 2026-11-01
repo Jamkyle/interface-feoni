@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import AccessRequest from "../Components/AccessRequest";
+import HistoryPanel from "../Components/HistoryPanel";
 import { saveTraduction } from "../helpers/dbUtils";
 import {
   COLLECTIONS,
@@ -10,6 +11,8 @@ import {
 
 const EMPTY = { titre: "", cantique: "", trad: "" };
 
+const FIELD_LABELS = { titre: "le titre", cantique: "le texte malgache", trad: "la traduction" };
+
 const fromEntry = (entry) => ({
   titre: entry?.titre || "",
   cantique: entry?.strophe?.[0]?.cantique || "",
@@ -19,14 +22,27 @@ const fromEntry = (entry) => ({
 const formatDate = (iso) =>
   iso ? new Date(iso).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" }) : "";
 
-const EditorPage = ({ cantiques, loading, user, canEdit, openId, onOpened }) => {
+const EditorPage = ({
+  cantiques,
+  loading,
+  loadError,
+  user,
+  canEdit,
+  active,
+  openId,
+  onOpened,
+  onDirtyChange,
+}) => {
   const [collection, setCollection] = useState(COLLECTIONS[0]);
   const [numInput, setNumInput] = useState("");
   const [currentId, setCurrentId] = useState(null);
   const [draft, setDraft] = useState(EMPTY);
+  // Version de la base sur laquelle porte la saisie (date_last_update)
+  const [baseDate, setBaseDate] = useState("");
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
+  const [conflict, setConflict] = useState(false);
 
   const byId = useMemo(() => {
     const map = new Map();
@@ -36,10 +52,17 @@ const EditorPage = ({ cantiques, loading, user, canEdit, openId, onOpened }) => 
   }, [cantiques]);
 
   const entry = currentId ? byId.get(currentId) : null;
+  const remoteDate = entry?.date_last_update || "";
+  const remoteChanged = Boolean(entry) && dirty && remoteDate !== baseDate;
+
+  useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange]);
 
   // Données rafraîchies en temps réel tant qu'il n'y a pas de saisie en cours
   useEffect(() => {
-    if (currentId && !dirty) setDraft(fromEntry(entry));
+    if (currentId && !dirty) {
+      setDraft(fromEntry(entry));
+      setBaseDate(entry?.date_last_update || "");
+    }
   }, [currentId, entry, dirty]);
 
   // Prévenir avant de quitter la page avec des modifications non sauvegardées
@@ -62,11 +85,14 @@ const EditorPage = ({ cantiques, loading, user, canEdit, openId, onOpened }) => 
         return;
       }
       const parsed = parseCantiqueId(id);
+      const target = byId.get(id);
       setCollection(parsed.collection);
       setNumInput(String(parsed.num));
       setCurrentId(id);
-      setDraft(fromEntry(byId.get(id)));
+      setDraft(fromEntry(target));
+      setBaseDate(target?.date_last_update || "");
       setDirty(false);
+      setConflict(false);
       setMessage(null);
     },
     [dirty, byId]
@@ -105,44 +131,118 @@ const EditorPage = ({ cantiques, loading, user, canEdit, openId, onOpened }) => 
     setMessage(null);
   };
 
-  const save = async () => {
-    if (!canEdit || !currentId || saving) return;
+  const save = async ({ force = false } = {}) => {
+    if (!canEdit || !currentId || saving || !dirty) return;
+    if (loading || loadError) {
+      setMessage({
+        type: "error",
+        text: "La liste des cantiques n'est pas chargée : sauvegarde bloquée pour éviter un doublon",
+      });
+      return;
+    }
+
+    // Un champ qui avait du contenu et qui est maintenant vide
+    const saved = fromEntry(entry);
+    const emptied = Object.keys(FIELD_LABELS).filter(
+      (field) => saved[field].trim() && !draft[field].trim()
+    );
+    if (
+      emptied.length > 0 &&
+      !window.confirm(
+        `Vous allez effacer ${emptied.map((f) => FIELD_LABELS[f]).join(" et ")} du cantique ${currentId}. Continuer ?`
+      )
+    ) {
+      return;
+    }
+
     setSaving(true);
+    setMessage(null);
     try {
-      await saveTraduction({ key: entry?.key, id: currentId, ...draft });
+      await saveTraduction(
+        {
+          key: entry?.key,
+          id: currentId,
+          baseDate: force ? remoteDate : baseDate,
+          ...draft,
+        },
+        user
+      );
       setDirty(false);
+      setConflict(false);
       setMessage({ type: "success", text: `Cantique ${currentId} sauvegardé` });
     } catch (error) {
       console.error("Erreur lors de la sauvegarde :", error);
-      setMessage({
-        type: "error",
-        text:
-          error.code === "PERMISSION_DENIED"
-            ? "Sauvegarde refusée : ce compte n'a pas les droits d'écriture"
-            : `La sauvegarde du cantique ${currentId} a échoué`,
-      });
+      if (error.code === "conflict") {
+        setConflict(true);
+        setMessage({
+          type: "error",
+          text: `${error.message} par quelqu'un d'autre. Rien n'a été écrasé.`,
+        });
+      } else {
+        setMessage({
+          type: "error",
+          text:
+            error.code === "PERMISSION_DENIED"
+              ? "Sauvegarde refusée : ce compte n'a pas les droits d'écriture"
+              : error.code === "exists" || error.code === "deleted"
+              ? `${error.message}. Rien n'a été écrit.`
+              : `La sauvegarde du cantique ${currentId} a échoué`,
+        });
+      }
     } finally {
       setSaving(false);
     }
   };
 
-  const cancel = () => {
+  const discard = () => {
     setDraft(fromEntry(entry));
+    setBaseDate(remoteDate);
     setDirty(false);
+    setConflict(false);
     setMessage(null);
   };
 
-  // Ctrl/Cmd + S pour sauvegarder
+  const forceSave = () => {
+    if (
+      window.confirm(
+        "La version de la base sera remplacée par la vôtre (elle restera dans l'historique). Continuer ?"
+      )
+    ) {
+      save({ force: true });
+    }
+  };
+
+  const restore = (version) => {
+    if (
+      dirty &&
+      !window.confirm("Remplacer votre saisie en cours par cette ancienne version ?")
+    ) {
+      return;
+    }
+    setDraft(fromEntry(version));
+    setDirty(true);
+    setMessage({
+      type: "info",
+      text: "Ancienne version chargée : vérifiez puis sauvegardez pour la rétablir.",
+    });
+  };
+
+  // Ctrl/Cmd + S pour sauvegarder, seulement quand l'éditeur est affiché
+  const saveRef = useRef(save);
+  saveRef.current = save;
   useEffect(() => {
+    if (!active) return;
     const handler = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
         e.preventDefault();
-        save();
+        saveRef.current();
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  });
+  }, [active]);
+
+  const shown = currentId ? parseCantiqueId(currentId) : null;
 
   return (
     <section className="editor">
@@ -181,6 +281,13 @@ const EditorPage = ({ cantiques, loading, user, canEdit, openId, onOpened }) => 
         )}
       </form>
 
+      {loadError && (
+        <p className="notice notice--error">
+          Impossible de charger les cantiques. Rechargez la page avant de modifier quoi
+          que ce soit.
+        </p>
+      )}
+
       {!canEdit && (
         <div className="notice notice--info">
           <span>
@@ -195,7 +302,26 @@ const EditorPage = ({ cantiques, loading, user, canEdit, openId, onOpened }) => 
       )}
 
       {message && (
-        <p className={`notice notice--${message.type}`}>{message.text}</p>
+        <div className={`notice notice--${message.type}`}>
+          <span>{message.text}</span>
+          {conflict && (
+            <span className="notice__actions">
+              <button className="btn btn--small" onClick={discard}>
+                Charger la version actuelle
+              </button>
+              <button className="btn btn--small btn--danger" onClick={forceSave}>
+                Garder ma version
+              </button>
+            </span>
+          )}
+        </div>
+      )}
+
+      {canEdit && remoteChanged && !conflict && (
+        <p className="notice notice--error">
+          Ce cantique vient d'être modifié par quelqu'un d'autre pendant votre saisie.
+          Sauvegarder vous demandera de choisir quelle version garder.
+        </p>
       )}
 
       {!currentId ? (
@@ -208,14 +334,13 @@ const EditorPage = ({ cantiques, loading, user, canEdit, openId, onOpened }) => 
         <div className="card">
           <div className="editor__head">
             <h2>
-              {parseCantiqueId(currentId).collection.name}{" "}
-              {parseCantiqueId(currentId).num}
+              {shown.collection.name} {shown.num}
               {dirty && <span className="editor__dirty"> · modifié</span>}
             </h2>
             <span className="editor__meta">
               {entry
-                ? entry.date_last_update
-                  ? `Dernière modification : ${formatDate(entry.date_last_update)}`
+                ? remoteDate
+                  ? `Dernière modification : ${formatDate(remoteDate)}`
                   : ""
                 : "Pas encore dans la base"}
             </span>
@@ -254,13 +379,14 @@ const EditorPage = ({ cantiques, loading, user, canEdit, openId, onOpened }) => 
 
           {canEdit && (
             <div className="editor__actions">
-              <button className="btn" onClick={cancel} disabled={!dirty || saving}>
+              <HistoryPanel entryKey={entry?.key} onRestore={restore} />
+              <button className="btn" onClick={discard} disabled={!dirty || saving}>
                 Annuler les modifications
               </button>
               <button
                 className="btn btn--primary"
-                onClick={save}
-                disabled={!dirty || saving}
+                onClick={() => save()}
+                disabled={!dirty || saving || loadError}
                 title="Ctrl/Cmd + S"
               >
                 {saving ? "Sauvegarde…" : "Sauvegarder"}

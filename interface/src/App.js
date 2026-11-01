@@ -32,11 +32,12 @@ const writeGuest = (value) => {
 
 const App = () => {
   const { user, ready, isAdmin, authError, setAuthError } = useAuth();
-  const { cantiques, loading } = useCantiques();
+  const { cantiques, loading, error: loadError } = useCantiques();
   const [guest, setGuest] = useState(readGuest);
   const [tab, setTab] = useState("editor");
   // Cantique à ouvrir dans l'éditeur depuis un autre onglet
   const [openId, setOpenId] = useState(null);
+  const [editorDirty, setEditorDirty] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -70,7 +71,12 @@ const App = () => {
     ...(isAdmin ? [{ id: "admins", label: "Admins" }] : []),
   ];
 
+  const confirmLeave = () =>
+    !editorDirty ||
+    window.confirm("Des modifications ne sont pas sauvegardées. Les abandonner ?");
+
   const backToLogin = () => {
+    if (!confirmLeave()) return;
     setAuthError("");
     setGuest(false);
     writeGuest(false);
@@ -90,7 +96,7 @@ const App = () => {
         user={user}
         isAdmin={isAdmin}
         onLogin={backToLogin}
-        onLogout={() => signOut(auth)}
+        onLogout={() => confirmLeave() && signOut(auth)}
       />
       <main className="app__main">
         {/* L'éditeur reste monté pour ne pas perdre une saisie en cours */}
@@ -98,8 +104,11 @@ const App = () => {
           <EditorPage
             cantiques={cantiques}
             loading={loading}
+            loadError={loadError}
             user={user}
             canEdit={isAdmin}
+            active={tab === "editor"}
+            onDirtyChange={setEditorDirty}
             openId={openId}
             onOpened={() => setOpenId(null)}
           />

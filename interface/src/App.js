@@ -1,347 +1,115 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { useSelector, useDispatch } from "react-redux";
-import { ref, push, onValue } from "firebase/database"; // Firebase modulaire
-import {
-  onAuthStateChanged,
-  signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
-  signOut,
-} from "firebase/auth";
-import TextAera from "./Components/TextAera";
-import TextInput from "./Components/TextInput";
-import Categories from "./Components/Categories";
-import AdminPanel from "./Components/AdminPanel";
-import AccessRequest from "./Components/AccessRequest";
-import EmailLogin from "./Components/EmailLogin";
+import React, { useState, useEffect } from "react";
+import { signOut } from "firebase/auth";
 import "./css/App.css";
-import { db, auth, googleProvider } from "./store/firebase";
-import { updateTrad } from "./helpers/dbUtils";
-import { getCantiqueAndExport } from "./helpers/exportCantique";
-import { isACantique } from "./helpers/checkUtils";
+import { auth } from "./store/firebase";
+import useAuth from "./hooks/useAuth";
+import useCantiques from "./hooks/useCantiques";
+import Header from "./Components/Header";
+import LoginPage from "./pages/LoginPage";
+import EditorPage from "./pages/EditorPage";
+import MissingPage from "./pages/MissingPage";
+import ExportPage from "./pages/ExportPage";
+import AdminPanel from "./Components/AdminPanel";
+
+const GUEST_KEY = "feoni-guest";
+
+const readGuest = () => {
+  try {
+    return sessionStorage.getItem(GUEST_KEY) === "1";
+  } catch {
+    return false;
+  }
+};
+
+const writeGuest = (value) => {
+  try {
+    if (value) sessionStorage.setItem(GUEST_KEY, "1");
+    else sessionStorage.removeItem(GUEST_KEY);
+  } catch {
+    // stockage indisponible : le mode invité ne survivra pas au rechargement
+  }
+};
 
 const App = () => {
-  const dispatch = useDispatch();
+  const { user, ready, isAdmin, authError, setAuthError } = useAuth();
+  const { cantiques, loading } = useCantiques();
+  const [guest, setGuest] = useState(readGuest);
+  const [tab, setTab] = useState("editor");
+  // Cantique à ouvrir dans l'éditeur depuis un autre onglet
+  const [openId, setOpenId] = useState(null);
 
-  // State local
-  const [show, setShow] = useState(250);
-  const [list, setList] = useState([]);
-  const [listTrad, setListTrad] = useState([]);
-  const [messages, setMessages] = useState("");
-  const [user, setUser] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [showAdmin, setShowAdmin] = useState(false);
-
-  // Accès au state Redux
-  const {
-    id,
-    trad,
-    listCantiques,
-    categories,
-    tradData,
-    cantiqueData,
-  } = useSelector((state) => state);
-
-  // Variables locales
-  const francais = useMemo(() => trad?.strophe?.[0]?.trad || "", [trad]);
-  const malgache = useMemo(() => trad?.strophe?.[0]?.cantique || "", [trad]);
-  const title = useMemo(() => trad?.titre || "", [trad]);
-
-  // Session Google : seuls les uid listés dans /admins peuvent écrire
   useEffect(() => {
-    getRedirectResult(auth).catch((error) => {
-      console.error("Erreur de connexion :", error);
-      setMessages({
-        color: "#F33",
-        message: `La connexion a échoué (${error.code})`,
-      });
-    });
-  }, []);
-
-  useEffect(() => onAuthStateChanged(auth, setUser), []);
-
-  // Écoute en continu : une demande acceptée donne l'accès sans recharger
-  useEffect(() => {
-    if (!user) {
-      setIsAdmin(false);
-      setShowAdmin(false);
-      return;
+    if (user) {
+      setGuest(false);
+      writeGuest(false);
     }
-    return onValue(
-      ref(db, `/admins/${user.uid}`),
-      (snapshot) => setIsAdmin(snapshot.val() === true),
-      (error) => {
-        console.error("Erreur lors de la vérification admin :", error);
-        setIsAdmin(false);
-      }
-    );
   }, [user]);
 
-  const login = async () => {
-    try {
-      await signInWithPopup(auth, googleProvider);
-    } catch (error) {
-      // Popup bloquée par le navigateur : on bascule sur la redirection
-      if (
-        error.code === "auth/popup-blocked" ||
-        error.code === "auth/operation-not-supported-in-this-environment"
-      ) {
-        await signInWithRedirect(auth, googleProvider);
-        return;
-      }
-      console.error("Erreur de connexion :", error);
-      setMessages({
-        color: "#F33",
-        message: `La connexion a échoué (${error.code})`,
-      });
-    }
-  };
-
-  // Charger la liste des cantiques au montage
   useEffect(() => {
-    dispatch({ type: "GET_LIST_CANTIQUE" });
-  }, [dispatch]);
-  // Mettre à jour les listes lorsque listCantiques change
-  useEffect(() => {
-    if (listCantiques) {
-      const newList = listCantiques.map((e) =>
-        isNaN(e.id) ? e.id : Number(e.id)
-      );
-      const newListTrad = listCantiques
-        .filter((e) => e.strophe[0]?.trad !== "")
-        .map((e) => (isNaN(e.id) ? e.id : Number(e.id)));
+    if (tab === "admins" && !isAdmin) setTab("editor");
+  }, [tab, isAdmin]);
 
-      setList(newList);
-      setListTrad(newListTrad);
-    }
-  }, [listCantiques]);
+  if (!ready) return <div className="splash">Chargement…</div>;
 
-  // Fonction pour afficher/cacher le tutoriel
-  const toggleShow = () => {
-    setShow((prevShow) => (prevShow >= 200 ? 0 : 250));
+  if (!user && !guest) {
+    return (
+      <LoginPage
+        authError={authError}
+        onGuest={() => {
+          setGuest(true);
+          writeGuest(true);
+        }}
+      />
+    );
+  }
+
+  const tabs = [
+    { id: "editor", label: "Éditeur" },
+    { id: "missing", label: "Sans traduction" },
+    { id: "export", label: "Export" },
+    ...(isAdmin ? [{ id: "admins", label: "Admins" }] : []),
+  ];
+
+  const backToLogin = () => {
+    setAuthError("");
+    setGuest(false);
+    writeGuest(false);
   };
 
-  // Fonction pour soumettre un cantique
-  const submit = async (data) => {
-    if (!isAdmin) {
-      setMessages({
-        color: "#F33",
-        message: "Connectez-vous avec un compte administrateur pour sauvegarder",
-      });
-      return;
-    }
-    const dateLastUpdate = new Date().toISOString();
-    if (trad?.id) {
-      const isSuccess = await updateTrad(trad.id, data);
-      // Mise à jour existante
-      const message = isSuccess
-        ? `Le cantique : ${trad.id} a bien été modifié et sauvegardé dans la base`
-        : `une erreur est survenue lors de la mise à jour du cantique : ${trad.id}`;
-      setMessages({
-        color: isSuccess ? "#3E6" : "#F33",
-        message,
-      });
-
-      dispatch({ type: "GET_CANTIQUE_TRADUCTION", id: trad.id });
-    } else {
-      // Création d'un nouvel élément
-      try {
-        await push(ref(db, "/Traduction"), {
-          id,
-          strophe: [data],
-          titre: title,
-          date_last_update: dateLastUpdate,
-        });
-      } catch (error) {
-        console.error("Erreur lors de la création :", error);
-        setMessages({
-          color: "#F33",
-          message: `une erreur est survenue lors de la création du cantique : ${id}`,
-        });
-        return;
-      }
-
-      setMessages({
-        color: "#3E6",
-        message: `Le cantique : ${id} a bien été créé et sauvegardé dans la base`,
-      });
-
-      dispatch({ type: "GET_CANTIQUE_TRADUCTION", id });
-    }
+  const openInEditor = (id) => {
+    setOpenId(id);
+    setTab("editor");
   };
-
-  // Calculer les cantiques sans traduction
-  const listDiff = (list) => {
-    const fullList = Array.from({ length: 828 }, (_, i) => i + 1);
-    return fullList.filter((x) => !list.includes(x));
-  };
-
-  const sortedList = useMemo(() => list.sort((a, b) => a - b), [list]);
-  const listDiffTrad = useMemo(
-    () =>
-      listDiff(listTrad).map((e) => (
-        <span style={{ color: "#4e7", margin: "2px" }} key={e}>
-          {e}
-        </span>
-      )),
-    [listTrad]
-  );
-
-  const num = id.includes(categories) ? id : categories + id;
 
   return (
-    <div className="App">
-      <h1>
-        Interface Gestion <br /> Feoni
-      </h1>
-      <div className="App-auth">
-        {user ? (
-          <>
-            <span>
-              {user.email}
-              {isAdmin ? " (admin)" : " (lecture seule)"}
-            </span>
-            {isAdmin ? (
-              <button onClick={() => setShowAdmin((prev) => !prev)}>
-                {showAdmin ? "Masquer les admins" : "Gérer les admins"}
-              </button>
-            ) : (
-              <AccessRequest user={user} />
-            )}
-            <button onClick={() => signOut(auth)}>Se déconnecter</button>
-          </>
-        ) : (
-          <>
-            <EmailLogin />
-            <span>ou</span>
-            <button onClick={login}>Se connecter avec Google</button>
-          </>
+    <div className="app">
+      <Header
+        tabs={tabs}
+        tab={tab}
+        onTab={setTab}
+        user={user}
+        isAdmin={isAdmin}
+        onLogin={backToLogin}
+        onLogout={() => signOut(auth)}
+      />
+      <main className="app__main">
+        {/* L'éditeur reste monté pour ne pas perdre une saisie en cours */}
+        <div hidden={tab !== "editor"}>
+          <EditorPage
+            cantiques={cantiques}
+            loading={loading}
+            user={user}
+            canEdit={isAdmin}
+            openId={openId}
+            onOpened={() => setOpenId(null)}
+          />
+        </div>
+        {tab === "missing" && (
+          <MissingPage cantiques={cantiques} loading={loading} onOpen={openInEditor} />
         )}
-      </div>
-      {isAdmin && showAdmin && <AdminPanel user={user} />}
-      <div className="App-editeur">
-        <div>
-          <button
-            onClick={toggleShow}
-            style={{
-              cursor: "pointer",
-              background: "#47e",
-              border: "1px solid black",
-              padding: "5px",
-              borderRadius: "10px",
-              color: "#eee",
-            }}
-          >
-            Afficher/Cacher le tutoriel
-          </button>
-        </div>
-        <div className="tuto" style={{ height: show }}>
-          <h2>Pour éditer un cantique</h2>
-          <p>
-            Étape :
-            <br />
-            1. Choisir la catégorie (FFPM, ANTEMA, TSANTA ...)
-            <br />
-            2. Entrer le numéro du cantique
-            <br />
-            3. Appuyez sur Commencer directement{" "}
-            <i>(oui le titre se remplit automatiquement :) )</i>
-            <br />
-            <br />
-            4. Remplir la traduction
-            <br />
-            5. Remplir le cantique en malgache s'il n'apparaît pas
-            <br />
-            6. Appuyez sur Sauvegarder pour enregistrer dans la base
-          </p>
-          <p style={{ fontSize: "0.8em", color: "#47E" }}>
-            <i>
-              Si aucun titre n'est affiché ou qu'il n'a pas changé, c'est qu'il
-              n'existe pas.
-              <br /> Remplissez ou corrigez le champ.
-            </i>
-          </p>
-          <h2>Pour exporter un/des cantique(s)</h2>
-          <ul style={{ fontSize: "1em", listStyleType: "none" }}>
-            <li>
-              1. Entrer le/les numeros de cantique que vous voulez exporter
-              <br />
-              <span style={{ fontSize: "13px" }}>
-                a. definir les numeros séparé d'une virgule, exemple:
-                300,304,800
-              </span>
-              <br />
-              <span style={{ fontSize: "13px" }}>
-                b. definir une intervalle de valeur avec un tiret, exemple:
-                300-800
-              </span>
-            </li>
-            <li>
-              2. Cliquer sur exporter, des fichier txt sera téléchargé en .txt
-            </li>
-            <li>
-              3. Si une pop up vous demande d'autoriser le téléchargement de
-              plusieurs fichier, accéptez
-            </li>
-          </ul>
-        </div>
-        <div className="messages">
-          <span style={{ color: messages.color }}>{messages.message}</span>
-        </div>
-        <div className="App-options">
-          <Categories cats={["FFPM", "TSANTA", "ANTEMA", "FF"]} />
-          <TextInput name={"num"} />
-          <button
-            onClick={() => {
-              if (id.indexOf(",") !== -1) {
-                alert(
-                  "Je ne peux pas traiter plusieurs cantiques en mâme temps"
-                );
-                return;
-              }
-
-              if (isACantique(id)) {
-                dispatch({ type: "GET_CANTIQUE_TRADUCTION", id: num });
-                setMessages({
-                  color: "#3E6",
-                  message: `Cantique ${id} prêt à être modifié`,
-                });
-              }
-              else {
-                setMessages({
-                  color: "#F33",
-                  message: `Cantique ${id} n'existe pas et ne peut pas être modifié`,
-                });
-              }
-            }}
-          >
-            Commencer
-          </button>
-          <button onClick={() => getCantiqueAndExport(id)}>Exporter</button>
-          <div>
-            <TextInput name={"title"} style={{ width: "100%" }} />
-          </div>
-        </div>
-        <TextAera
-          name={"francais"}
-          placeholder="Contenu en français"
-          content={francais}
-        />
-        <TextAera
-          name={"malgache"}
-          placeholder="Contenu en malgache"
-          content={malgache}
-        />
-      </div>
-      <button
-        disabled={!isAdmin}
-        title={isAdmin ? "" : "Réservé aux administrateurs"}
-        onClick={() => submit({ trad: tradData, cantique: cantiqueData })}
-      >
-        Sauvegarder
-      </button>
-      <p>Liste des cantiques sans traduction ({listDiffTrad.length})</p>
-      <div style={{ display: "flex", flexWrap: "wrap" }}>{listDiffTrad}</div>
+        {tab === "export" && <ExportPage cantiques={cantiques} />}
+        {tab === "admins" && isAdmin && <AdminPanel user={user} />}
+      </main>
     </div>
   );
 };

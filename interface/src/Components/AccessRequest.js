@@ -37,13 +37,17 @@ const AccessRequest = ({ user }) => {
     <span className="access-request">
       {request ? (
         <>
-          <span>Demande d'accès en attente</span>
-          <button onClick={cancelRequest}>Annuler la demande</button>
+          <span className="badge">Demande en attente</span>
+          <button className="btn btn--small" onClick={cancelRequest}>
+            Annuler la demande
+          </button>
         </>
       ) : (
-        <button onClick={sendRequest}>Demander l'accès en écriture</button>
+        <button className="btn btn--small btn--primary" onClick={sendRequest}>
+          Demander l'accès en écriture
+        </button>
       )}
-      {error && <span style={{ color: "#F33" }}>{error}</span>}
+      {error && <span className="text-error">{error}</span>}
     </span>
   );
 };

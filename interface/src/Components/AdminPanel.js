@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { ref, onValue, update, set } from "firebase/database";
 import { db } from "../store/firebase";
-import "../css/AdminPanel.css";
 
 const formatDate = (timestamp) =>
   timestamp ? new Date(timestamp).toLocaleString("fr-FR") : "";
@@ -72,15 +71,15 @@ const AdminPanel = ({ user }) => {
   const adminIds = Object.keys(admins).filter((uid) => admins[uid] === true);
 
   return (
-    <div className="admin-panel">
+    <section className="card admin-panel">
       <h2>Comptes admin</h2>
-      {error && <p style={{ color: "#F33" }}>{error}</p>}
+      {error && <p className="notice notice--error">{error}</p>}
 
       <h3>Demandes en attente ({requestIds.length})</h3>
       {requestIds.length === 0 ? (
-        <p className="admin-panel--empty">Aucune demande</p>
+        <p className="muted">Aucune demande</p>
       ) : (
-        <ul>
+        <ul className="admin-panel__list">
           {requestIds.map((uid) => (
             <li key={uid}>
               <span>
@@ -89,8 +88,12 @@ const AdminPanel = ({ user }) => {
                 <small> — {formatDate(requests[uid].timestamp)}</small>
               </span>
               <span>
-                <button onClick={() => approve(uid)}>Accepter</button>
-                <button onClick={() => refuse(uid)}>Refuser</button>
+                <button className="btn btn--small btn--primary" onClick={() => approve(uid)}>
+                  Accepter
+                </button>
+                <button className="btn btn--small" onClick={() => refuse(uid)}>
+                  Refuser
+                </button>
               </span>
             </li>
           ))}
@@ -98,7 +101,7 @@ const AdminPanel = ({ user }) => {
       )}
 
       <h3>Admins ({adminIds.length})</h3>
-      <ul>
+      <ul className="admin-panel__list">
         {adminIds.map((uid) => (
           <li key={uid}>
             <span>
@@ -107,12 +110,14 @@ const AdminPanel = ({ user }) => {
               {uid === user.uid && " (vous)"}
             </span>
             {uid !== user.uid && (
-              <button onClick={() => revoke(uid)}>Retirer</button>
+              <button className="btn btn--small btn--danger" onClick={() => revoke(uid)}>
+                Retirer
+              </button>
             )}
           </li>
         ))}
       </ul>
-    </div>
+    </section>
   );
 };
 

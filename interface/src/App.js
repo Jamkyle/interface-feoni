@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { ref, push, get } from "firebase/database"; // Firebase modulaire
+import { ref, push, onValue } from "firebase/database"; // Firebase modulaire
 import {
   onAuthStateChanged,
   signInWithPopup,
@@ -11,6 +11,8 @@ import {
 import TextAera from "./Components/TextAera";
 import TextInput from "./Components/TextInput";
 import Categories from "./Components/Categories";
+import AdminPanel from "./Components/AdminPanel";
+import AccessRequest from "./Components/AccessRequest";
 import "./css/App.css";
 import { db, auth, googleProvider } from "./store/firebase";
 import { updateTrad } from "./helpers/dbUtils";
@@ -27,6 +29,7 @@ const App = () => {
   const [messages, setMessages] = useState("");
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
 
   // Accès au state Redux
   const {
@@ -54,24 +57,24 @@ const App = () => {
     });
   }, []);
 
-  useEffect(
-    () =>
-      onAuthStateChanged(auth, async (currentUser) => {
-        setUser(currentUser);
-        if (!currentUser) {
-          setIsAdmin(false);
-          return;
-        }
-        try {
-          const snapshot = await get(ref(db, `/admins/${currentUser.uid}`));
-          setIsAdmin(snapshot.val() === true);
-        } catch (error) {
-          console.error("Erreur lors de la vérification admin :", error);
-          setIsAdmin(false);
-        }
-      }),
-    []
-  );
+  useEffect(() => onAuthStateChanged(auth, setUser), []);
+
+  // Écoute en continu : une demande acceptée donne l'accès sans recharger
+  useEffect(() => {
+    if (!user) {
+      setIsAdmin(false);
+      setShowAdmin(false);
+      return;
+    }
+    return onValue(
+      ref(db, `/admins/${user.uid}`),
+      (snapshot) => setIsAdmin(snapshot.val() === true),
+      (error) => {
+        console.error("Erreur lors de la vérification admin :", error);
+        setIsAdmin(false);
+      }
+    );
+  }, [user]);
 
   const login = async () => {
     try {
@@ -197,12 +200,20 @@ const App = () => {
               {user.email}
               {isAdmin ? " (admin)" : " (lecture seule)"}
             </span>
+            {isAdmin ? (
+              <button onClick={() => setShowAdmin((prev) => !prev)}>
+                {showAdmin ? "Masquer les admins" : "Gérer les admins"}
+              </button>
+            ) : (
+              <AccessRequest user={user} />
+            )}
             <button onClick={() => signOut(auth)}>Se déconnecter</button>
           </>
         ) : (
           <button onClick={login}>Se connecter avec Google</button>
         )}
       </div>
+      {isAdmin && showAdmin && <AdminPanel user={user} />}
       <div className="App-editeur">
         <div>
           <button

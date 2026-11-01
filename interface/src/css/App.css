@@ -88,3 +88,9 @@ input{
   gap: 10px;
   padding: 10px;
 }
+
+.access-request{
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}

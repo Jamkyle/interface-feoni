@@ -13,6 +13,7 @@ import TextInput from "./Components/TextInput";
 import Categories from "./Components/Categories";
 import AdminPanel from "./Components/AdminPanel";
 import AccessRequest from "./Components/AccessRequest";
+import EmailLogin from "./Components/EmailLogin";
 import "./css/App.css";
 import { db, auth, googleProvider } from "./store/firebase";
 import { updateTrad } from "./helpers/dbUtils";
@@ -210,7 +211,11 @@ const App = () => {
             <button onClick={() => signOut(auth)}>Se déconnecter</button>
           </>
         ) : (
-          <button onClick={login}>Se connecter avec Google</button>
+          <>
+            <EmailLogin />
+            <span>ou</span>
+            <button onClick={login}>Se connecter avec Google</button>
+          </>
         )}
       </div>
       {isAdmin && showAdmin && <AdminPanel user={user} />}
